@@ -1,27 +1,18 @@
 # Mini Customer Management App
 
 ## Technologies Used
-Next.js (App Router), TypeScript, Supabase (PostgreSQL), plain CSS
+
+Next.js (App Router), TypeScript, Supabase (PostgreSQL), Plain CSS
 
 ## Features
-- Add, view, edit, delete customers
-- Search by name, phone, email or city
-- Form validation (name, phone, email, city)
+
+- Add, view, edit, and delete customers
+- Search by name, phone, email, or city
+- Form validation for customer details
+- Responsive and clean UI
 
 ## How to Run
-1. `npm install`
-2. Create a Supabase project and run `supabase/schema.sql` in the SQL Editor
-3. Copy `.env.example` to `.env.local` and fill in your Supabase URL and anon key
-4. `npm run dev` then open http://localhost:3000
 
-## Database Structure
-Table `customers`: id (uuid, PK), name, phone, email, city, created_at
-
-## What I Learned
-(Write your own: Next.js client components, Supabase CRUD, validation, RLS)
-
-## Problems Faced
-(Write your own: e.g. env setup, RLS policy errors)
-
-## Screenshots
-(Add screenshots here)
+1. Install dependencies:
+   ```bash
+   npm install
