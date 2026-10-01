@@ -16,19 +16,24 @@ type Props = {
 export default function CustomerTable({
   customers, loading, query, highlightId, removingId, onEdit, onDelete,
 }: Props) {
+  // the .scroll box has a fixed height and a Y scrollbar in every state
   if (loading)
     return (
-      <div className="state">
-        <Loader2 className="spin" size={30} />
-        Loading customers...
+      <div className="scroll">
+        <div className="state">
+          <Loader2 className="spin" size={30} />
+          Loading customers...
+        </div>
       </div>
     );
 
   if (customers.length === 0)
     return (
-      <div className="state">
-        {query ? <SearchX size={42} /> : <Inbox size={42} />}
-        <p>{query ? `No customers match "${query}".` : "No customers yet. Add your first one!"}</p>
+      <div className="scroll">
+        <div className="state">
+          {query ? <SearchX size={42} /> : <Inbox size={42} />}
+          <p>{query ? `No customers match "${query}".` : "No customers yet. Add your first one!"}</p>
+        </div>
       </div>
     );
 
