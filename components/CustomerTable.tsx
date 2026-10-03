@@ -1,4 +1,5 @@
-import { Pencil, Trash2, Phone, Mail, Inbox, SearchX, Loader2 } from "lucide-react";
+import { Pencil, Trash2, Phone, Mail, Inbox, SearchX, Loader2, Eye } from "lucide-react";
+import Link from "next/link";
 import { Customer } from "@/lib/supabase";
 import { gradientFor, initials } from "@/lib/utils";
 import Highlight from "./Highlight";
@@ -61,7 +62,9 @@ export default function CustomerTable({
                   <span className="avatar" style={{ background: gradientFor(c.name) }}>
                     {initials(c.name)}
                   </span>
-                  <b><Highlight text={c.name} query={query} /></b>
+                  <Link href={`/customers/${c.id}`} className="name-link" title="View details">
+                    <b><Highlight text={c.name} query={query} /></b>
+                  </Link>
                 </div>
               </td>
               <td>
@@ -74,6 +77,9 @@ export default function CustomerTable({
                 <span className="tag"><Highlight text={c.city} query={query} /></span>
               </td>
               <td className="right">
+                <Link href={`/customers/${c.id}`} className="icon" title="View details">
+                  <Eye size={16} />
+                </Link>
                 <button className="icon" title="Edit" onClick={() => onEdit(c)}>
                   <Pencil size={16} />
                 </button>

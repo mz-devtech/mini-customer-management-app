@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { supabase, Customer } from "@/lib/supabase";
-import { Form, matchesSearch } from "@/lib/utils";
+import { useCallback, useEffect, useState } from "react";
+import { Customer } from "@/lib/supabase";
+import { Form } from "@/lib/utils";
+import { createCustomer, updateCustomer, deleteCustomer, fetchMeta } from "@/lib/customers";
+import { useCustomers } from "@/hooks/usecustomers";
 import { useToast } from "@/hooks/useToast";
 import Header from "@/components/Header";
 import StatsCards from "@/components/StatsCards";
@@ -11,6 +13,10 @@ import CustomerTable from "@/components/CustomerTable";
 import CustomerFormModal from "@/components/CustomerFormModal";
 import DeleteModal from "@/components/DeleteModal";
 import ToastContainer from "@/components/ToastContainer";
+import Pagination from "@/components/Pagination";
+import ErrorState from "@/components/ErrorState";
+
+const PAGE_SIZE = 10;
 
 type ModalState =
   | { type: "form"; customer: Customer | null }
@@ -18,83 +24,78 @@ type ModalState =
   | null;
 
 export default function Home() {
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
+  const [city, setCity] = useState("");
   const [modal, setModal] = useState<ModalState>(null);
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [meta, setMeta] = useState({ total: 0, cities: [] as string[], latest: "—" });
   const { toasts, toast } = useToast();
+  const { customers, total, loading, error, refetch } = useCustomers(page, PAGE_SIZE, search, city);
+
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  const loadMeta = useCallback(async () => {
+    const m = await fetchMeta();
+    if (!m.error) setMeta(m);
+  }, []);
 
   useEffect(() => {
-    (async () => {
-      const { data, error } = await supabase
-        .from("customers")
-        .select("*")
-        .order("created_at", { ascending: true });
-      if (error) toast("error", error.message);
-      else setCustomers(data || []);
-      setLoading(false);
-    })();
-  }, [toast]);
+    loadMeta();
+  }, [loadMeta]);
 
-  // scroll to the added/edited row, then remove the highlight
+  // if the last item of a page is deleted, go back one page
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
   useEffect(() => {
     if (!highlightId) return;
     const t1 = setTimeout(
       () => document.getElementById(`row-${highlightId}`)?.scrollIntoView({ behavior: "smooth", block: "center" }),
-      100
+      500
     );
-    const t2 = setTimeout(() => setHighlightId(null), 2500);
+    const t2 = setTimeout(() => setHighlightId(null), 2800);
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
     };
   }, [highlightId]);
 
-  const filtered = useMemo(
-    () => customers.filter((c) => matchesSearch(c, search)),
-    [customers, search]
-  );
-  const cityCount = useMemo(
-    () => new Set(customers.map((c) => c.city.toLowerCase())).size,
-    [customers]
-  );
-
   async function saveCustomer(form: Form, existing: Customer | null) {
-    const payload = {
-      name: form.name.trim(),
-      phone: form.phone.trim(),
-      email: form.email.trim(),
-      city: form.city.trim(),
-    };
     if (existing) {
-      const { data, error } = await supabase
-        .from("customers").update(payload).eq("id", existing.id).select().single();
-      if (error) return toast("error", error.message);
-      setCustomers((prev) => prev.map((c) => (c.id === existing.id ? data : c)));
+      const { data, error } = await updateCustomer(existing.id, form);
+      if (error || !data) return toast("error", error || "Update failed");
+      refetch();
+      loadMeta();
       setHighlightId(existing.id);
       toast("success", `${data.name} updated successfully`);
     } else {
-      const { data, error } = await supabase
-        .from("customers").insert(payload).select().single();
-      if (error) return toast("error", error.message);
-      setCustomers((prev) => [...prev, data]);
-      setSearch(""); // make sure the new row is visible
+      const { data, error } = await createCustomer(form);
+      if (error || !data) return toast("error", error || "Could not add customer");
+      // newest customers are listed first, so go back to page 1 with no filters
+      if (search || city || page !== 1) {
+        setSearch("");
+        setCity("");
+        setPage(1);
+      } else refetch();
+      loadMeta();
       setHighlightId(data.id);
       toast("success", `${data.name} added successfully`);
     }
     setModal(null);
   }
 
-  async function deleteCustomer(c: Customer) {
-    const { error } = await supabase.from("customers").delete().eq("id", c.id);
-    if (error) return toast("error", error.message);
+  async function removeCustomer(c: Customer) {
+    const { error } = await deleteCustomer(c.id);
+    if (error) return toast("error", error);
     setModal(null);
     setRemovingId(c.id);
     setTimeout(() => {
-      setCustomers((prev) => prev.filter((x) => x.id !== c.id));
       setRemovingId(null);
+      refetch();
+      loadMeta();
     }, 350);
     toast("info", `${c.name} deleted`);
   }
@@ -103,39 +104,61 @@ export default function Home() {
     <main className="wrap">
       <Header onAdd={() => setModal({ type: "form", customer: null })} />
 
-      <StatsCards
-        total={customers.length}
-        cities={cityCount}
-        latest={customers.length ? customers[customers.length - 1].name : "—"}
-      />
+      <StatsCards total={meta.total} cities={meta.cities.length} latest={meta.latest} />
 
       <section className="panel">
         <div className="toolbar">
           <h2>
-            All Customers{" "}
-            <span className="count">
-              {search ? `${filtered.length} of ${customers.length}` : customers.length}
-            </span>
+            All Customers <span className="count">{total}</span>
           </h2>
-          <SearchBar value={search} onChange={setSearch} />
+          <div className="filters">
+            <select
+              className="filter"
+              value={city}
+              onChange={(e) => {
+                setCity(e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="">All cities</option>
+              {meta.cities.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+            <SearchBar
+              value={search}
+              onChange={(v) => {
+                setSearch(v);
+                setPage(1);
+              }}
+            />
+          </div>
         </div>
 
-        <CustomerTable
-          customers={filtered}
-          loading={loading}
-          query={search}
-          highlightId={highlightId}
-          removingId={removingId}
-          onEdit={(c) => setModal({ type: "form", customer: c })}
-          onDelete={(c) => setModal({ type: "delete", customer: c })}
-        />
+        {error ? (
+          <ErrorState message={error} onRetry={refetch} />
+        ) : (
+          <CustomerTable
+            customers={customers}
+            loading={loading}
+            query={search}
+            highlightId={highlightId}
+            removingId={removingId}
+            onEdit={(c) => setModal({ type: "form", customer: c })}
+            onDelete={(c) => setModal({ type: "delete", customer: c })}
+          />
+        )}
+
+        {!error && total > 0 && (
+          <Pagination page={page} totalPages={totalPages} total={total} pageSize={PAGE_SIZE} onPage={setPage} />
+        )}
       </section>
 
       {modal?.type === "form" && (
         <CustomerFormModal customer={modal.customer} onClose={() => setModal(null)} onSave={saveCustomer} />
       )}
       {modal?.type === "delete" && (
-        <DeleteModal customer={modal.customer} onClose={() => setModal(null)} onConfirm={deleteCustomer} />
+        <DeleteModal customer={modal.customer} onClose={() => setModal(null)} onConfirm={removeCustomer} />
       )}
 
       <ToastContainer toasts={toasts} />

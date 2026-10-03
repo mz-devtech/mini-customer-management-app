@@ -5,10 +5,25 @@ export const emptyForm: Form = { name: "", phone: "", email: "", city: "" };
 
 export function validate(f: Form) {
   const e: Partial<Form> = {};
-  if (f.name.trim().length < 2) e.name = "Name must be at least 2 characters";
-  if (!/^[0-9+\-\s]{7,15}$/.test(f.phone.trim())) e.phone = "Enter a valid phone number";
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email.trim())) e.email = "Enter a valid email address";
-  if (f.city.trim().length < 2) e.city = "City is required";
+  const name = f.name.trim(), phone = f.phone.trim(), email = f.email.trim(), city = f.city.trim();
+  const letters = /^[\p{L}][\p{L}\s.'-]*$/u;
+
+  if (!name) e.name = "Name is required";
+  else if (name.length < 2 || name.length > 50) e.name = "Name must be 2 to 50 characters";
+  else if (!letters.test(name)) e.name = "Name can only contain letters, spaces, . ' and -";
+
+  const digits = phone.replace(/\D/g, "");
+  if (!phone) e.phone = "Phone is required";
+  else if (!/^\+?[0-9\s-]+$/.test(phone)) e.phone = "Use digits, spaces, - and an optional leading +";
+  else if (digits.length < 10 || digits.length > 15) e.phone = "Phone must have 10 to 15 digits";
+
+  if (!email) e.email = "Email is required";
+  else if (email.length > 100) e.email = "Email is too long (max 100)";
+  else if (!/^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/.test(email)) e.email = "Enter a valid email address";
+
+  if (!city) e.city = "City is required";
+  else if (city.length < 2 || city.length > 40) e.city = "City must be 2 to 40 characters";
+  else if (!letters.test(city)) e.city = "City can only contain letters and spaces";
   return e;
 }
 
