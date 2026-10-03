@@ -132,8 +132,8 @@ The `email` column is unique, and indexes exist on `city` and `created_at` (see 
 - **Fixed table height:** the table needed a fixed height and a visible Y-axis scrollbar after three users, so I tuned the height to fit the header and three rows.
 - **Vercel deployment:** the deployment did not appear because filters were applied on the Deployments page and the environment variables were missing. I removed the filters, added the Supabase variables in the project settings and redeployed.
 
-## Screenshots
-(Add screenshots here)
+
+
 
 ## Security Note
 No passwords, API keys or `.env` files are uploaded to GitHub. Only `.env.example` with placeholder values is included.
